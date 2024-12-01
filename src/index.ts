@@ -56,11 +56,11 @@ function loadMainPrompts() {
           addDepartment();
           break;
 
-        case 'Add  A Role':
+        case 'Add a Role':
           addRole();
           break;
 
-        case 'Add An Employee':
+        case 'Add an Employee':
           addEmployee();
           break;
 
@@ -156,14 +156,15 @@ function addRole() {
       ]);
     })
     .then((answers) => {
-      const query = 'INSERT INTO role (title, salary, department_id) VALUES ($1, $1, $1)';
+      const query = 'INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3)';
       db.query(query, [answers.roleTitle, answers.roleSalary, answers.departmentId])
         .then(() => {
           console.log(`Added ${answers.roleTitle} to the database.`);
           loadMainPrompts();
         })
         .catch((err) => console.error('Error:', err));
-    });
+    })
+    .catch((err) => console.error('Error:', err));
 }
 
 
@@ -211,16 +212,16 @@ function addEmployee() {
       });
     })
     .then((answers) => {
-      const query = 'INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ($1, $1, $1, $1)';
+      const query = 'INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)';
       db.query(query, [answers.firstName, answers.lastName, answers.roleId, answers.managerId])
         .then(() => {
           console.log(`Added ${answers.firstName} ${answers.lastName} to the database.`);
           loadMainPrompts();
         })
         .catch((err) => console.error('Error:', err));
-    });
+    })
+    .catch((err) => console.error('Error:', err));
 }
-
 
 function updateEmployeeRole() {
   db.query('SELECT * FROM employee')
@@ -253,16 +254,16 @@ function updateEmployeeRole() {
       });
     })
     .then((answers) => {
-      const query = 'UPDATE employee SET role_id = ? WHERE id = ?';
+      const query = 'UPDATE employee SET role_id = $1 WHERE id = $2';
       db.query(query, [answers.newRoleId, answers.employeeId])
         .then(() => {
           console.log('Employee role updated successfully!');
           loadMainPrompts();
         })
         .catch((err) => console.error('Error:', err));
-    });
+    })
+    .catch((err) => console.error('Error:', err));
 }
-
 
 
 function quit() {
