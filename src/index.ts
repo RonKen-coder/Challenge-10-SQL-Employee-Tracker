@@ -29,10 +29,17 @@ function loadMainPrompts() {
           'View All Departments',
           'View All Roles',
           'View All Employees',
+          'View Employees by Manager',
+          'View Employees by Department',
+          'View Department Budget',
           'Add a Department',
           'Add a Role',
           'Add an Employee',
           'Update Employee Role',
+          'Update Employee Manager',
+          'Delete Department',
+          'Delete Role',
+          'Delete Employee',
           'Quit',
         ],
       },
@@ -52,6 +59,18 @@ function loadMainPrompts() {
           viewEmployees();
           break;
 
+        case 'View Employees by Manager':
+          viewEmployeesByManager();
+          break;
+
+        case 'View Employees by Department':
+          viewEmployeesByDepartment();
+          break;
+        
+        case 'View Department Budget':
+          viewDepartmentBudget();
+          break;
+
         case 'Add a Department':
           addDepartment();
           break;
@@ -64,10 +83,25 @@ function loadMainPrompts() {
           addEmployee();
           break;
 
-          case 'Update Employee Role':
-            updateEmployeeRole();
-            break;
+        case 'Update Employee Role':
+          updateEmployeeRole();
+          break;
 
+        case 'Update Employee Manager':
+          updateEmployeeManager();
+          break;
+
+        case 'Delete Department':
+          deleteDepartment();
+          break;
+
+        case 'Delete Role':
+          deleteRole();
+          break;
+
+        case 'Delete Employee':
+          deleteEmployee();
+          break;
 
         case 'Quit':
           quit();
@@ -102,6 +136,101 @@ function viewEmployees() {
       loadMainPrompts();
     })
 }
+
+function viewEmployeesByManagers() {
+
+  db.query('SELECT * FROM employeesByManagers')
+    .then((res) => {
+      console.table(res.rows);
+      loadMainPrompts();
+    })
+}
+
+function viewDepartmentBudget() {
+  db.query('SELECT * FROM department')
+    .then((res) => {
+      const departmentChoices = res.rows.map((dept) => ({
+        name: dept.name,
+        value: dept.id,
+      }));
+
+      return inquirer.prompt([
+        {
+          name: 'departmentId',
+          type: 'list',
+          message: 'Select a department to view its total utilized budget:',
+          choices: departmentChoices,
+        },
+      ]);
+    })
+    .then((answer) => {
+      const query = `
+        SELECT 
+          department.name AS department,
+          SUM(role.salary) AS total_budget
+        FROM employee
+        INNER JOIN role ON employee.role_id = role.id
+        INNER JOIN department ON role.department_id = department.id
+        WHERE department.id = $1
+        GROUP BY department.name;
+      `;
+
+      db.query(query, [answer.departmentId])
+        .then((res) => {
+          if (res.rows.length > 0) {
+            console.table(res.rows);
+          } else {
+            console.log('No employees in this department.');
+          }
+          loadMainPrompts();
+        })
+        .catch((err) => console.error('Error:', err));
+    })
+    .catch((err) => console.error('Error:', err));
+}
+
+// function viewEmployeesByDepartment removed due to duplication
+
+function viewEmployeesByManager() {
+  const query = `
+    SELECT 
+      CONCAT(manager.first_name, ' ', manager.last_name) AS manager,
+      CONCAT(employee.first_name, ' ', employee.last_name) AS employee
+    FROM employee
+    LEFT JOIN employee AS manager
+    ON employee.manager_id = manager.id
+    ORDER BY manager, employee;
+  `;
+
+  db.query(query)
+    .then((res) => {
+      console.table(res.rows);
+      loadMainPrompts();
+    })
+    .catch((err) => console.error('Error:', err));
+}
+
+function viewEmployeesByDepartment() {
+  const query = `
+    SELECT 
+      department.name AS department,
+      CONCAT(employee.first_name, ' ', employee.last_name) AS employee,
+      role.title AS role
+    FROM employee
+    INNER JOIN role ON employee.role_id = role.id
+    INNER JOIN department ON role.department_id = department.id
+    ORDER BY department, employee;
+  `;
+
+  db.query(query)
+    .then((res) => {
+      console.table(res.rows);
+      loadMainPrompts();
+    })
+    .catch((err) => console.error('Error:', err));
+}
+
+
 
 
 
@@ -264,6 +393,128 @@ function updateEmployeeRole() {
     })
     .catch((err) => console.error('Error:', err));
 }
+
+function updateEmployeeManager() {
+  db.query('SELECT * FROM employee')
+    .then((employeeRes) => {
+      const employeeChoices = employeeRes.rows.map((emp) => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        value: emp.id,
+      }));
+
+      return inquirer.prompt([
+        {
+          name: 'employeeId',
+          type: 'list',
+          message: 'Select the employee to update:',
+          choices: employeeChoices,
+        },
+        {
+          name: 'newManagerId',
+          type: 'list',
+          message: 'Select the new manager for this employee (or None):',
+          choices: [{ name: 'None', value: null }, ...employeeChoices],
+        },
+      ]);
+    })
+    .then((answers) => {
+      const query = 'UPDATE employee SET manager_id = $1 WHERE id = $2';
+      db.query(query, [answers.newManagerId, answers.employeeId])
+        .then(() => {
+          console.log('Employee manager updated successfully!');
+          loadMainPrompts();
+        })
+        .catch((err) => console.error('Error:', err));
+    })
+    .catch((err) => console.error('Error:', err));
+}
+
+function deleteDepartment() {
+  db.query('SELECT * FROM department')
+    .then((res) => {
+      const departmentChoices = res.rows.map((dept) => ({
+        name: dept.name,
+        value: dept.id,
+      }));
+
+      return inquirer.prompt([
+        {
+          name: 'departmentId',
+          type: 'list',
+          message: 'Select the department to delete:',
+          choices: departmentChoices,
+        },
+      ]);
+    })
+    .then((answer) => {
+      const query = 'DELETE FROM department WHERE id = $1';
+      db.query(query, [answer.departmentId])
+        .then(() => {
+          console.log('Department deleted successfully!');
+          loadMainPrompts();
+        })
+        .catch((err) => console.error('Error:', err));
+    });
+}
+
+function deleteRole() {
+  db.query('SELECT * FROM role')
+    .then((res) => {
+      const roleChoices = res.rows.map((role) => ({
+        name: role.title,
+        value: role.id,
+      }));
+
+      return inquirer.prompt([
+        {
+          name: 'roleId',
+          type: 'list',
+          message: 'Select the role to delete:',
+          choices: roleChoices,
+        },
+      ]);
+    })
+    .then((answer) => {
+      const query = 'DELETE FROM role WHERE id = $1';
+      db.query(query, [answer.roleId])
+        .then(() => {
+          console.log('Role deleted successfully!');
+          loadMainPrompts();
+        })
+        .catch((err) => console.error('Error:', err));
+    });
+}
+
+
+function deleteEmployee() {
+  db.query('SELECT * FROM employee')
+    .then((res) => {
+      const employeeChoices = res.rows.map((emp) => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        value: emp.id,
+      }));
+
+      return inquirer.prompt([
+        {
+          name: 'employeeId',
+          type: 'list',
+          message: 'Select the employee to delete:',
+          choices: employeeChoices,
+        },
+      ]);
+    })
+    .then((answer) => {
+      const query = 'DELETE FROM employee WHERE id = $1';
+      db.query(query, [answer.employeeId])
+        .then(() => {
+          console.log('Employee deleted successfully!');
+          loadMainPrompts();
+        })
+        .catch((err) => console.error('Error:', err));
+    });
+}
+
+
 
 
 function quit() {
